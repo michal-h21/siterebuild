@@ -1,0 +1,137 @@
+#!/usr/bin/env texlua
+kpse.set_program_name "luatex"
+
+-- reuse code from make4ht for basic setup
+-- logging library is used by make4ht libraries to report errors, warnings and notices
+logging = require "make4ht-logging"
+-- colors don't work on Windows
+if os.type == "windows" then logging.use_colors = false end
+
+-- logging object for this script
+local log = logging.new "siterebuild"
+
+local cli_message = [[
+Find LaTeX files that need to be recompiled
+-l,--loglevel  (default warning) Messages log level
+-n,--no_config                   Don't load .make4ht config file   
+-p,--file_pattern  (default nil) Pattern used to generate HTML filenames
+-s,--site_root     (default nil) Generated HTML files root
+<tex_root>         (default .)   TeX files root
+]]
+
+local mkutils = require "mkutils"
+local mk_config = require "make4ht-config"
+local lapp = require "lapp-mk4"
+
+local function get_cli_args(msg)
+  local args = lapp(msg)
+  -- default nil values are strings, convert it to real nil
+  for k,v in pairs(args) do if v=="nil" then args[k] = nil end end
+  return args
+end
+
+
+local function read_config_file(configname)
+  local parameters = {extensions = {}}
+  -- we need to load the .make4ht configuration file for the current project. If it contains settings
+  -- for the static_site extension, we will use it by default
+  local conffile = mk_config.find_config(configname) or mk_config.find_xdg_config(configname)
+  if conffile then
+    log:info("Using configuration file: " .. conffile)
+    return mkutils.load_config(parameters, conffile)
+  end
+  -- return just empty table if no config file was found
+  return {}
+end
+
+local function get_staticsite_settings(parameters)
+  -- try to find settins for the staticsite filter 
+  -- in the settings table
+  local parameters = parameters or {}
+  local settings = parameters.settings or {}
+  local filter = settings.filter or {}
+  return filter.staticsite or {}
+end
+
+-- construct the name of the generated HTML file from the .published file
+local function get_generated_html_name(published_file, directory, file_pattern)
+  local f = io.open(directory .. "/" .. published_file, "r")
+  local content = f:read("*all")
+  f:close()
+  local timestamp = tonumber(content)
+  local basename = mkutils.remove_extension(published_file)
+  local tex_file = basename .. ".tex"
+  -- expand fillename in the file_pattern
+  -- the expansion using % works thanks to metatable declarations in mkutils.lua
+  local expanded = file_pattern % {input = basename}
+  -- expand date in the file_pattern 
+  expanded = os.date(expanded, timestamp)
+  -- log:info("found source files :", directory, basename, expanded)
+  return {directory = directory, tex_file = tex_file, generated = expanded .. ".html"}
+end
+
+-- process subdirectories of the basedir and look for the filename.published files
+local function find_published(basedir, file_pattern)
+  local published = {}
+  for f in lfs.dir(basedir) do
+    local fullname = basedir .. "/" .. f
+    local attributes = lfs.attributes(fullname)
+    -- process directories, but ignore . and ..
+    if attributes.mode == "directory" and f ~= "." and f~= ".." then
+      for name in lfs.dir(fullname) do
+        if name:match("published$") then
+          published[#published + 1]  =  get_generated_html_name(name, fullname, file_pattern)
+        end
+
+      end
+    end
+  end
+  return published
+end
+
+-- find tex files that were modified later than the generated HTML files
+local function find_changed(published, site_root)
+  local keep = {}
+  for _, entry in ipairs(published) do
+    local source_attributes = lfs.attributes(entry.directory .. "/" .. entry.tex_file)
+    local dest_attributes = lfs.attributes(site_root .. "/" .. entry.generated)
+    -- 
+    if source_attributes.change > dest_attributes.change then
+      log:info("found changed file", entry.directory, entry.tex_file, entry.generated,  source_attributes.change < dest_attributes.change)
+      keep[#keep+1] = entry
+    end
+  end
+  return keep
+end
+
+-- execute script
+-- get command line settings
+local cli_args      = get_cli_args(cli_message)
+
+
+-- set message log level
+logging.set_level(cli_args.loglevel)
+
+-- read staticsite settings from local .make4ht file
+-- it can be disable using --no_config option
+local config = {}
+if cli_args.no_config == false then
+  local configname    = "make4ht"
+  local parameters    = read_config_file(configname)
+  config              = get_staticsite_settings(parameters)
+end
+
+-- combine command line options and settings from the .make4ht file
+-- how the generated HTML files are named
+local file_pattern = cli_args.file_pattern or config.file_pattern  or "%Y-%m-%d-${input}"
+local tex_root = cli_args.tex_root or "."
+local site_root = cli_args.site_root or config.site_root or "."
+
+-- find published TeX documents
+local published = find_published(tex_root, file_pattern)
+-- test, if TeX files are newer than the generated HTML files
+local changed = find_changed(published, site_root)
+for _, x in ipairs(changed) do
+  print(x.directory .. "/" .. x.tex_file)
+end
+
