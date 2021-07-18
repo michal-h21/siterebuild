@@ -99,6 +99,7 @@ local function find_changed(published, site_root)
     if not dest_attributes then
       log:warning("Cannot find generated file: " .. generated_file)
       log:warning("Maybe try to use the --site-root argument to pass the correct path to the generated HTML directory")
+      -- we can say that this is a fatal error
       return keep
     end
     -- 
