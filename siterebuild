@@ -14,9 +14,10 @@ local cli_message = [[
 Find LaTeX files that need to be recompiled
 -l,--loglevel  (default warning) Messages log level
 -n,--no_config                   Don't load .make4ht config file   
--p,--file_pattern  (default nil) Pattern used to generate HTML filenames
--s,--site_root     (default nil) Generated HTML files root
-<tex_root>         (default .)   TeX files root
+-o,--output_pattern (default %dir/%file) Pattern for matched file printing
+-p,--file_pattern   (default nil) Pattern used to generate HTML filenames
+-s,--site_root      (default nil) Generated HTML files root
+<tex_root>          (default .)   TeX files root
 ]]
 
 local mkutils = require "mkutils"
@@ -129,12 +130,15 @@ end
 local file_pattern = cli_args.file_pattern or config.file_pattern  or "%Y-%m-%d-${input}"
 local tex_root = cli_args.tex_root or "."
 local site_root = cli_args.site_root or config.site_root or "."
+local output_pattern = cli_args.output_pattern
 
 -- find published TeX documents
 local published = find_published(tex_root, file_pattern)
 -- test, if TeX files are newer than the generated HTML files
 local changed = find_changed(published, site_root)
 for _, x in ipairs(changed) do
-  print(x.directory .. "/" .. x.tex_file)
+  local output_file = output_pattern:gsub("%%file", x.tex_file):gsub("%%dir", x.directory)
+  print(output_file)
+  -- print(x.directory .. "/" .. x.tex_file)
 end
 

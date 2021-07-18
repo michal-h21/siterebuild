@@ -55,6 +55,7 @@ To find files that were modified since the publication time, go to the `textpost
 
     -l,--loglevel  (default warning) Messages log level
     -n,--no_config                   Don't load .make4ht config file   
+    -o,--output_pattern (default %dir/%file) Pattern for matched file printing
     -p,--file_pattern  (default nil) Pattern used to generate HTML filenames
     -s,--site_root     (default nil) Generated HTML files root
     <tex_root>         (default .)   TeX files root
