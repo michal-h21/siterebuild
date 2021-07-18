@@ -94,7 +94,13 @@ local function find_changed(published, site_root)
   local keep = {}
   for _, entry in ipairs(published) do
     local source_attributes = lfs.attributes(entry.directory .. "/" .. entry.tex_file)
-    local dest_attributes = lfs.attributes(site_root .. "/" .. entry.generated)
+    local generated_file = site_root .. "/" .. entry.generated
+    local dest_attributes = lfs.attributes(generated_file)
+    if not dest_attributes then
+      log:warning("Cannot find generated file: " .. generated_file)
+      log:warning("Maybe try to use the --site-root argument to pass the correct path to the generated HTML directory")
+      return keep
+    end
     -- 
     if source_attributes.change > dest_attributes.change then
       log:info("found changed file", entry.directory, entry.tex_file, entry.generated,  source_attributes.change < dest_attributes.change)
