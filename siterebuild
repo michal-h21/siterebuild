@@ -97,13 +97,9 @@ local function find_changed(published, site_root)
     local generated_file = site_root .. "/" .. entry.generated
     local dest_attributes = lfs.attributes(generated_file)
     if not dest_attributes then
-      log:warning("Cannot find generated file: " .. generated_file)
-      log:warning("Maybe try to use the --site-root argument to pass the correct path to the generated HTML directory")
-      -- we can say that this is a fatal error
-      return keep
-    end
-    -- 
-    if source_attributes.change > dest_attributes.change then
+      log:info("Cannot find generated file: ", generated_file)
+      keep[#keep+1] = entry
+    elseif  source_attributes.change > dest_attributes.change then
       log:info("found changed file", entry.directory, entry.tex_file, entry.generated,  source_attributes.change < dest_attributes.change)
       keep[#keep+1] = entry
     end
