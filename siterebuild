@@ -96,7 +96,12 @@ local function find_changed(published, site_root)
   for _, entry in ipairs(published) do
     local source_attributes = lfs.attributes(entry.directory .. "/" .. entry.tex_file)
     local generated_file = site_root .. "/" .. entry.generated
+    -- we must change directory to the TeX file directory in order to get correct path
+    -- to the generated file
+    lfs.chdir(entry.directory)
     local dest_attributes = lfs.attributes(generated_file)
+    -- and go back to the original directory
+    lfs.chdir("..")
     if not dest_attributes then
       log:info("Cannot find generated file: ", generated_file)
       keep[#keep+1] = entry
