@@ -110,6 +110,7 @@ local function find_changed(published, site_root)
       keep[#keep+1] = entry
     else
       log:info("found unchanged file", entry.directory, entry.tex_file, entry.generated,  source_attributes.change < dest_attributes.change)
+      log:info("attributes", source_attributes.change, dest_attributes.change)
     end
   end
   return keep
